@@ -4,7 +4,8 @@ import { Repository } from "typeorm";
 import { User } from "../user.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { CreateUserDto } from "../dtos/create.user.dto";
-import { ConfigService } from "@nestjs/config";
+import * as config from "@nestjs/config";
+import authConfig from "../config/auth.config";
 
 /** This class service connect to users */
 @Injectable()
@@ -17,7 +18,10 @@ export class UserService{
         @InjectRepository(User)
         private userRepository:Repository<User>,
 
-        private readonly configService:ConfigService
+        private readonly configService:config.ConfigService,
+
+        @Inject(authConfig.KEY)
+        private readonly authConfiguration:config.ConfigType<typeof authConfig>
     ){}
 
     /** Get all users */
@@ -27,7 +31,7 @@ export class UserService{
         const env = this.configService.get("AUTH_KEY")
 
         console.log(env)
-
+        console.log(this.authConfiguration.fallback)
         return [
             {
                 id:1,

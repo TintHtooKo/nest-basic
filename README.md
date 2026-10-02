@@ -1,169 +1,223 @@
-## Database part
+### @nestjs/config
+```
+npm i --save @nestjs/config
+```
+.env file ထဲက environment variables ကို NestJS application တစ်ခုလုံးမှာ လွယ်ကူ စနစ်တကျ ပြန်လည်ထုတ်သုံးနိုင်အောင် ပြုလုပ်ပေးတဲ့ package ဖြစ်ပါတယ်။
 
-### Install necessary packages
-Before starting database, we have to install these three package
-@nestjs/typeorm, typeorm and pg (postgre)
+After install package, you have to create .env file in root folder.
+And then import in app.module.ts
 ```
-npm i --save @nestjs/typeorm typeorm
-```
-```
-npm i pg
-```
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
-After installed packages, import in App moduel
-```
-import { TypeOrmModule } from '@nestjs/typeorm';
 @Module({
-  imports: [TypeOrmModule.forRoot({
-    type: 'postgres',
-    entities: [],
-    synchronize: true,
-    port : 5432,
-    username: 'postgres',
-    password: 'superuser',
-    host: 'localhost',
-    database: 'nest-basic'
-  })],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [ConfigModule.forRoot({isGlobal: true, }),],
 })
 ```
-And then create database in pgadmin and run project.
 
-### Create Entity
-What is entity? Entity is table for database
-If you want user entity, create inside of users folder
-users/user.entity.ts
-We have also user dto for validation. So make match with user dto
-Eg.
-```
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
-
-@Entity()
-export class User{
-    @PrimaryGeneratedColumn()
-    id:number;
-
-    @Column({
-        type:"varchar",
-        length:20,
-        nullable:false
-    })
-    firstName: string;
-
-    @Column({
-        type:"varchar",
-        length:20,
-        nullable:false,
-    })
-    lastName: string;
-
-    @Column({
-        type:"varchar",
-        nullable:false,
-        unique:true
-    })
-    email: string;
-
-    @Column({
-        type:"varchar",
-        nullable:false
-    })
-    password: string;
-}
-```
-What is @Entity()?
-When you add @Entity(), your code will know that is entity file.
-
-What is @PrimaryGeneratedColumn()?
-It will do auto increment.
-
-What is @Column?
-That is for database table rule.
-
-And then import in app.module.ts inside of entity.
-import { User } from './users/user.entity';
-```
-entities: [User],
-```
-
-app.module.ts မှာ  import လုပ်ပီးရင် သက်ဆိုင်ရာ module မှာလည်း ထပ်ပီး import လုပ်ရမယ်
-Eg. User entity ဆိုတော့ user.module.ts မှာ ထပ်ပီး import လုပ်
-```
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './user.entity';
-imports:[
-    TypeOrmModule.forFeature([User])
-  ]
-```
-
-ပီးရင် user entity ကို service ထဲမှာ ခေါ်သုံးတော့မယ်။ မသုံးခင်အရင်ဆုံး contractor ထဲမှာ repository inject လုပ်ပေးရမယ်
+And then, အခြား File / Service များထဲတွင် ConfigService ကို ခေါ်ယူအသုံးပြုပါ
 
 ```
-import { Repository } from "typeorm";
-import { User } from "../user.entity";
-import { InjectRepository } from "@nestjs/typeorm";
-constructor(
-        @InjectRepository(User)
-        private userRepository:Repository<User>
+import { ConfigService } from "@nestjs/config";
+@Injectable()
+export class UserService{
+    constructor(
+        private readonly configService:ConfigService
     ){}
-```
-What is Repository<User>?
-User Entity (Database table) နဲ့ ပတ်သက်တဲ့ Database လုပ်ဆောင်ချက်တွေ (ဥပမာ - find(), findOne(), save(), delete(), create()) အားလုံးကို ပြုလုပ်ပေးနိုင်တဲ့ Helper class ဖြစ်ပါတယ်။
 
-What is @InjectRepository(User)?
-NestJS ရဲ့ Dependency Injection (DI) စနစ်ကို သုံးပြီး User Table နဲ့ သက်ဆိုင်တဲ့ Repository instance ကို အလိုအလျောက် ယူဆောင်ပေးတာ ဖြစ်ပါတယ်။
-Module ထဲမှာ TypeOrmModule.forFeature([User]) ဆိုပြီး ထည့်ထားခဲ့ရင် NestJS က ဒီ Decorator ကို မြင်တာနဲ့ သက်ဆိုင်ရာ Repository ကို ရှာပြီး ချိတ်ဆက်ပေးပါလိမ့်မယ်။
-
-And then you can use like this?
-Eg.
-```
-async createUser(createUserDto:CreateUserDto){
-        const existUser = await this.userRepository.findOne({
-            where:{email:createUserDto.email}
-        })
-        let newUser = this.userRepository.create(createUserDto)
-        newUser = await this.userRepository.save(newUser)
-        return newUser
+    getAllUser(){
+        const env = this.configService.get("AUTH_KEY")
+        console.log(env)
     }
+}
 ```
 
-### Table Relation
-It is simple. If you want to do one to one
-Eg
-Post => PostMeta
-in post entity
+For real world project, there will be multiple .env file.
+Eg. .env.local, .env.development etc
+So how to do? 
+first of all, you have to setup .evn you want to run in package.json like that.
 ```
-<!-- This is post entity -->
-import {  OneToOne } from "typeorm";
-import { PostMeta } from "src/post-meta/post-meta.entity";
+"start:dev": "cross-env NODE_ENV=development nest start --watch",
+```
+Why use cross-evn?
+If your system is Linux or macOS (Bash), no need cross-env.
+If your system is window, you have to install and use cross-env
+```
+npm i -D cross-env
+```
 
-@Entity()
-export class Post{
+And then setup in app.module.ts
+```
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
-    @OneToOne(()=>PostMeta,(postMeta)=>postMeta.post,{
-        cascade:true,
-        eager:true
+const ENV = process.env.NODE_ENV
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+        isGlobal:true,
+        envFilePath: ENV ? `.env.${ENV}` : '.env'
     })
-    meta:PostMeta
-}
+  ],
+})
+```
+That is .env setup.
 
-<!-- This is post meta entity -->
-import { Post } from "src/posts/post.entity";
-import {  OneToOne, JoinColumn } from "typeorm";
+### Use .env variable in app.module.ts
+```
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
-@Entity()
-export class PostMeta{
-    @OneToOne(()=>Post,(post)=>post.meta)
-    @JoinColumn()
-    post:Post
+const ENV = process.env.NODE_ENV
+
+@Module({
+  imports: [
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService:ConfigService)=>({
+        type: 'postgres',
+        synchronize: true,
+        port : +configService.get("DATABASE_PORT"),
+        username: configService.get("DATABASE_USERNAME"),
+        password: configService.get("DATABASE_PASSWORD"),
+        host: configService.get("DATABASE_HOST"),
+        database: configService.get("DATABASE_NAME"),
+      })
+    }), 
+    ConfigModule.forRoot({
+        isGlobal:true,
+        envFilePath: ENV ? `.env.${ENV}` : '.env'
+    })
+  ],
+})
+```
+
+port : +configService.get("DATABASE_PORT"), in there Why use +?
+config always return string. but port should be number. That's why add plus to change number.
+
+### Important note
+When you changed forRootAsync, there should be imports and inject.
+imports is for module and inject is for service. That's for every files
+
+### Or Else
+you can build global config src/config folder and can do like that
+src/config/database.config.ts
+```
+import { registerAs } from "@nestjs/config";
+
+export default registerAs('database',() => ({
+    autoLoadEntities: process.env.DATABASE_AUTOLOAD === "true" ? true : false,
+    synchronize: process.env.DATABASE_SYNC === "true" ? true : false,
+    port : parseInt(process.env.DATABASE_PORT!) || 5432,
+    username: process.env.DATABASE_USERNAME,
+    password: process.env.DATABASE_PASSWORD,
+    host: process.env.DATABASE_HOST,
+    name: process.env.DATABASE_NAME,
+}))
+```
+
+app.module.ts
+```
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import databaseConfig from './config/database.config';
+const ENV = process.env.NODE_ENV
+
+@Module({
+  imports: [
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService:ConfigService)=>({
+        type: 'postgres',
+        autoLoadEntities:true,
+        synchronize: true,
+        port : +configService.get("database.port"),
+        username: configService.get("database.username"),
+        password: configService.get("database.password"),
+        host: configService.get("database.host"),
+        database: configService.get("database.name"),
+      })
+    }), 
+    ConfigModule.forRoot({
+        isGlobal:true,
+        envFilePath: ENV ? `.env.${ENV}` : '.env',
+        load: [databaseConfig]
+    })
+  ],
+})
+```
+
+And also you can build config folder in related file
+eg. src/user/config/auth.config.ts
+```
+import { registerAs } from "@nestjs/config";
+
+export default registerAs('authConfig',()=>({
+    fallback: process.env.AUTH_FALLBACK
+}))
+```
+
+If you create config for user, you have to import in users.module.ts
+eg.
+```
+import { ConfigModule } from '@nestjs/config';
+import authConfig from './config/auth.config';
+@Module({
+  imports:[
+    ConfigModule.forFeature(authConfig)
+  ]
+})
+```
+And then inject in users.service.ts and can use in there
+```
+@Injectable()
+export class UserService{
+    constructor(
+        @Inject(authConfig.KEY)
+        private readonly authConfiguration:config.ConfigType<typeof authConfig>
+    ){}
+
+    getAllUser(){
+        console.log(this.authConfiguration.fallback)
+    }
 }
 ```
-@JoinColumn ကို children database ထဲမှာဘဲ ထည့်
-TypeORM မှာ eager: true ဆိုတာ Main Entity (Post) ကို Database ကနေ ဆွဲထုတ်ယူ (Query လုပ်) လိုက်တာနဲ့ သက်ဆိုင်ရာ Related Entity (PostMeta) ကိုပါ Automatically တစ်ခါတည်း ဆွဲထုတ်ပေးမယ် လို့ ခိုင်းစေတာ ဖြစ်ပါတယ်။
 
-**Important note**
-Entity တိုင်းမှာ eager: true လိုက်သုံးရင် Database Query ပိုလေးသွားနိုင်ပါတယ်။
-One-to-One Relationships: Post နဲ့ PostMeta လိုမျိုး ၁ ခုနဲ့ ၁ ခု အမြဲ တွဲလျက် ရှိနေတတ်တဲ့ Relationship မျိုးမှာ သုံးဖို့ အထူးသင့်တော်ပါတယ်။
+### .env validation
+```
+npm i joi
+```
+After install joi, create env.validation.ts file in global config folder
+```
+import Joi from 'joi';
+
+export default Joi.object({
+    NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+    AUTH_KEY: Joi.string().required(),
+    DATABASE_PORT: Joi.number().port().default(5432),
+    DATABASE_USERNAME: Joi.string().required(),
+    DATABASE_PASSWORD: Joi.string().required(),
+    DATABASE_NAME: Joi.string().required(),
+    DATABASE_HOST: Joi.string().required(),
+
+    DATABASE_AUTOLOAD: Joi.boolean().optional(),
+    DATABASE_SYNC: Joi.boolean().optional(),
+
+    AUTH_FALLBACK: Joi.string().required(),
+})
+
+```
+
+And import in app.module.ts inside of config
+
+```
+ConfigModule.forRoot({
+    validationSchema: envValidation
+  })
+```
+
 
 
