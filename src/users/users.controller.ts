@@ -4,6 +4,7 @@ import { GetUserDto } from './dtos/get.user.dto';
 import { PatchUserDto } from './dtos/patch.user.dto';
 import { UserService } from './providers/user.service';
 import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { CreateMultiUserDto } from './dtos/multi-create-users.dto';
 
 @Controller('users')
 export class UsersController {
@@ -34,8 +35,7 @@ export class UsersController {
 
     @Get(":id")
     detailUser(@Param() getUserDto:GetUserDto){
-        console.log(getUserDto);
-        return "detail user endpoint";
+        return this.userService.findUserById(getUserDto.id);
     }
 
 
@@ -48,6 +48,11 @@ export class UsersController {
     updateUser(@Body() patchUserDto:PatchUserDto){
         console.log(patchUserDto);
         return "update user endpoint";
+    }
+
+    @Post("multi-create")
+    createMultiUser(@Body() createMultiUserDto:CreateMultiUserDto){
+        return this.userService.createMulti(createMultiUserDto);
     }
 
 }

@@ -1,223 +1,277 @@
-### @nestjs/config
-```
-npm i --save @nestjs/config
-```
-.env file ထဲက environment variables ကို NestJS application တစ်ခုလုံးမှာ လွယ်ကူ စနစ်တကျ ပြန်လည်ထုတ်သုံးနိုင်အောင် ပြုလုပ်ပေးတဲ့ package ဖြစ်ပါတယ်။
+### Exception error handling
+[text](https://docs.nestjs.com/exception-filters#built-in-http-exceptions)
 
-After install package, you have to create .env file in root folder.
-And then import in app.module.ts
-```
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+### Transaction
+NestJS နဲ့ TypeORM မှာ Transaction ဆိုတာ Multi-step database operations (ဒေတာဘေ့စ် လုပ်ဆောင်ချက် အဆင့်ဆင့်) တွေကို "တစ်ခုတည်းသော လုပ်ဆောင်ချက်" (Single Atomic Unit) အဖြစ် စုစည်းပြီး အလုပ်လုပ်ပေးတဲ့ နည်းလမ်းဖြစ်ပါတယ်။
 
-@Module({
-  imports: [ConfigModule.forRoot({isGlobal: true, }),],
-})
+အဓိက သဘောတရားကတော့ "အကုန်အောင်မြင်ရင် အကုန် သိမ်းမယ် (Commit)၊ တစ်ခုခု မှားသွားရင် နဂိုအတိုင်း အကုန် ပြန်ပြင်မယ် (Rollback)" ဆိုတဲ့ ACID သဘောတရား ဖြစ်ပါတယ်။
+
+၁။ ဘာကြောင့် Transaction ကို သုံးရသလဲ? (Real-World Example)
+ဥပမာ - ဘဏ်ငွေလွှဲစနစ် (Bank Transfer):
+အသုံးပြုသူ A က B ထံ ငွေ ၁၀,၀၀၀ ကျပ် လွှဲမည်ဆိုပါစို့။
+
+Step 1: User A ရဲ့ Account ထဲက ၁၀,၀၀၀ နှုတ်ရမည်။
+
+Step 2: User B ရဲ့ Account ထဲသို့ ၁၀,၀၀၀ ပေါင်းထည့်ရမည်။
+
+Transaction မပါရင် ဘာဖြစ်မလဲ?
+
+Step 1 ပြီးလို့ User A ထဲက ငွေနှုတ်ပြီးချိန်မှာ Server ရုတ်တရက် ကျသွားရင် သို့မဟုတ် Step 2 မှာ Error တက်သွားရင် User A ထဲက ငွေနှုတ်ပြီး ဖြစ်သွားသော်လည်း User B ထဲ ငွေမရောက်တော့ပါ။
+
+Transaction ပါရင် ဘာဖြစ်မလဲ?
+
+Step 2 မှာ Error တက်တာနဲ့ Transaction က Step 1 မှာ လုပ်ခဲ့သမျှကိုပါ နဂိုအတိုင်း ပြန်ဖျက်ပေး (Rollback) လိုက်သည့်အတွက် User A ရဲ့ ငွေလည်း မဆုံးရှုံးတော့ပါ။
+
+This is example code for create multiple users using transaction.
+first of all create file in user/provider
+```
+nest g pr multi-user-create.provider --flat --no-spec
 ```
 
-And then, အခြား File / Service များထဲတွင် ConfigService ကို ခေါ်ယူအသုံးပြုပါ
 
 ```
-import { ConfigService } from "@nestjs/config";
+import { ConflictException, Injectable, RequestTimeoutException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { User } from '../user.entity';
+import { CreateMultiUserDto } from '../dtos/multi-create-users.dto';
+
 @Injectable()
-export class UserService{
+export class MultiUserCreateProvider {
     constructor(
-        private readonly configService:ConfigService
+        private readonly dataSource:DataSource
     ){}
 
-    getAllUser(){
-        const env = this.configService.get("AUTH_KEY")
-        console.log(env)
+    async createMulti(createUsersDto:CreateMultiUserDto){
+        const newUsers: User[] = []
+
+        // Query runner instance
+        const queryRunner = this.dataSource.createQueryRunner();
+
+        try {
+            // Connect
+            await queryRunner.connect();
+
+            // Start transaction
+            await queryRunner.startTransaction();
+        } catch (error) {
+            throw new RequestTimeoutException('Cannot process your request this time.',{
+                description:"Cannot connect to database"
+            })
+        }
+
+        try {
+            for(let user of createUsersDto.users){
+                let newUser = queryRunner.manager.create(User,user)
+                let result = await queryRunner.manager.save(newUser)
+                newUsers.push(result)
+            }
+
+            // If success, commit
+            await queryRunner.commitTransaction();
+        } catch (error) {
+            // if failed, rollback
+            await queryRunner.rollbackTransaction();
+            throw new ConflictException("cannot complete request",{
+                description:String(error)
+            })
+        }finally{
+            // release
+            await queryRunner.release();
+        }
+        return newUsers
+    }
+}
+
+```
+
+First , you have to inject Database Source from typeorm
+```
+import { DataSource } from 'typeorm';
+constructor(
+        private readonly dataSource:DataSource
+    ){}
+```
+
+There are six step for Transaction
+1- Instance query runner
+```
+const queryRunner = this.dataSource.createQueryRunner();
+```
+
+2- Connect
+```
+await queryRunner.connect();
+```
+
+3- Start Transaction
+```
+await queryRunner.startTransaction();
+```
+
+4- If success, commit
+```
+await queryRunner.commitTransaction();
+```
+
+5- If failed, rollback
+```
+await queryRunner.rollbackTransaction();
+```
+
+6- Finally release
+```
+await queryRunner.release();
+```
+
+### Pagination
+We can make global pagination which can use in all services.
+
+First we have to create src/common/pagination folder
+
+Inside pagination create interface type for pagination
+
+paginated.interface.ts
+```
+export interface Paginated<T> {
+    data: T[];
+    metadata: {
+        itemPerPage: number
+        currentPage: number
+        totalItems: number
+        totalPages: number
+    };
+    links:{
+        first: string
+        last: string
+        current: string 
+        next: string
+        prev: string
+    }
+}
+```
+What is <T>?
+<T> means for all, eg. User, Post etc
+
+And then create dto for pagination
+pagination-query.dto.ts
+```
+import { Type } from "class-transformer";
+import { IsNumber, IsOptional, IsPositive } from "class-validator";
+
+export class PaginationQueryDto {
+    @IsOptional()
+    @IsPositive()
+    @Type(()=>Number)
+    limit: number;
+
+    @IsOptional()
+    @IsPositive()
+    @Type(()=>Number)
+    page: number;
+}
+```
+
+And then create provider and module for pagination
+pagination.provider.ts
+```
+import { Inject, Injectable } from '@nestjs/common';
+import { PaginationQueryDto } from '../dtos/pagination-query.dto';
+import { ObjectLiteral, Repository } from 'typeorm';
+import { REQUEST } from '@nestjs/core';
+import type { Request } from 'express';
+import { Paginated } from '../interfaces/paginated.interface';
+
+@Injectable()
+export class PaginationProvider {
+    constructor(
+        @Inject(REQUEST)
+        private readonly request:Request
+    ){}
+
+    async paginateQuery<T extends ObjectLiteral>(
+        paginateQuery:PaginationQueryDto, 
+        repository:Repository<T>
+    ):Promise<Paginated<T>>{
+
+        if(!paginateQuery.page || !paginateQuery.limit){
+            throw new Error('Page and limit are required')
+        }
+
+        const result = await repository.find({
+            skip:(paginateQuery.page - 1) * paginateQuery.limit,
+            take: paginateQuery.limit
+        })
+
+        const baseUrl = this.request.protocol + '://' + this.request.headers.host
+        
+        const newUrl = new URL(this.request.url, baseUrl)
+
+        const totalItems = await repository.count()
+
+        const totalPages = Math.ceil(totalItems / paginateQuery.limit)
+
+        const nextPage = paginateQuery.page === totalPages ? paginateQuery.page : paginateQuery.page + 1
+
+        const prevPage = paginateQuery.page === 1 ? paginateQuery.page : paginateQuery.page - 1 
+
+        return {
+            data: result,
+            metadata:{
+                itemPerPage: paginateQuery.limit,
+                totalItems,
+                currentPage: paginateQuery.page,
+                totalPages,
+            },
+            links:{
+                    first: `${newUrl.origin}${newUrl.pathname}?limit=${paginateQuery.limit}&page=1`,
+                    last: `${newUrl.origin}${newUrl.pathname}?limit=${paginateQuery.limit}&page=${totalPages}`,
+                    current: `${newUrl.origin}${newUrl.pathname}?limit=${paginateQuery.limit}&page=${paginateQuery.page}`,
+                    next: `${newUrl.origin}${newUrl.pathname}?limit=${paginateQuery.limit}&page=${nextPage}`,
+                    prev: `${newUrl.origin}${newUrl.pathname}?limit=${paginateQuery.limit}&page=${prevPage}`,
+            }
+        }
     }
 }
 ```
 
-For real world project, there will be multiple .env file.
-Eg. .env.local, .env.development etc
-So how to do? 
-first of all, you have to setup .evn you want to run in package.json like that.
-```
-"start:dev": "cross-env NODE_ENV=development nest start --watch",
-```
-Why use cross-evn?
-If your system is Linux or macOS (Bash), no need cross-env.
-If your system is window, you have to install and use cross-env
-```
-npm i -D cross-env
-```
+What is this for?
+@Inject(REQUEST)
+private readonly request:Request
 
-And then setup in app.module.ts
+NestJS ၏ Request Context ကို ရယူပြီး Client မှ တောင်းဆိုလိုက်သော Host, Protocol နှင့် URL လမ်းကြောင်းများကို ဖတ်ရန် အသုံးပြုပါသည်။
+
+And then import from pagination.module.ts
 ```
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-
-const ENV = process.env.NODE_ENV
+import { PaginationProvider } from './provider/pagination.provider';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-        isGlobal:true,
-        envFilePath: ENV ? `.env.${ENV}` : '.env'
-    })
-  ],
+  providers: [PaginationProvider],
+  exports: [PaginationProvider]
 })
-```
-That is .env setup.
+export class PaginationModule {}
 
-### Use .env variable in app.module.ts
-```
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-
-const ENV = process.env.NODE_ENV
-
-@Module({
-  imports: [
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService:ConfigService)=>({
-        type: 'postgres',
-        synchronize: true,
-        port : +configService.get("DATABASE_PORT"),
-        username: configService.get("DATABASE_USERNAME"),
-        password: configService.get("DATABASE_PASSWORD"),
-        host: configService.get("DATABASE_HOST"),
-        database: configService.get("DATABASE_NAME"),
-      })
-    }), 
-    ConfigModule.forRoot({
-        isGlobal:true,
-        envFilePath: ENV ? `.env.${ENV}` : '.env'
-    })
-  ],
-})
 ```
 
-port : +configService.get("DATABASE_PORT"), in there Why use +?
-config always return string. but port should be number. That's why add plus to change number.
-
-### Important note
-When you changed forRootAsync, there should be imports and inject.
-imports is for module and inject is for service. That's for every files
-
-### Or Else
-you can build global config src/config folder and can do like that
-src/config/database.config.ts
+And then you can use service what you want.
+Eg. in post.service.ts
 ```
-import { registerAs } from "@nestjs/config";
-
-export default registerAs('database',() => ({
-    autoLoadEntities: process.env.DATABASE_AUTOLOAD === "true" ? true : false,
-    synchronize: process.env.DATABASE_SYNC === "true" ? true : false,
-    port : parseInt(process.env.DATABASE_PORT!) || 5432,
-    username: process.env.DATABASE_USERNAME,
-    password: process.env.DATABASE_PASSWORD,
-    host: process.env.DATABASE_HOST,
-    name: process.env.DATABASE_NAME,
-}))
-```
-
-app.module.ts
-```
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import databaseConfig from './config/database.config';
-const ENV = process.env.NODE_ENV
-
-@Module({
-  imports: [
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService:ConfigService)=>({
-        type: 'postgres',
-        autoLoadEntities:true,
-        synchronize: true,
-        port : +configService.get("database.port"),
-        username: configService.get("database.username"),
-        password: configService.get("database.password"),
-        host: configService.get("database.host"),
-        database: configService.get("database.name"),
-      })
-    }), 
-    ConfigModule.forRoot({
-        isGlobal:true,
-        envFilePath: ENV ? `.env.${ENV}` : '.env',
-        load: [databaseConfig]
-    })
-  ],
-})
-```
-
-And also you can build config folder in related file
-eg. src/user/config/auth.config.ts
-```
-import { registerAs } from "@nestjs/config";
-
-export default registerAs('authConfig',()=>({
-    fallback: process.env.AUTH_FALLBACK
-}))
-```
-
-If you create config for user, you have to import in users.module.ts
-eg.
-```
-import { ConfigModule } from '@nestjs/config';
-import authConfig from './config/auth.config';
-@Module({
-  imports:[
-    ConfigModule.forFeature(authConfig)
-  ]
-})
-```
-And then inject in users.service.ts and can use in there
-```
-@Injectable()
-export class UserService{
-    constructor(
-        @Inject(authConfig.KEY)
-        private readonly authConfiguration:config.ConfigType<typeof authConfig>
-    ){}
-
-    getAllUser(){
-        console.log(this.authConfiguration.fallback)
+findAllPost(postQuery:GetPostDto){
+    let post
+    if(postQuery.limit || postQuery.page){
+        post = this.paginationProvider.paginateQuery(postQuery, this.postRepository)
+    }else{
+        post = this.postRepository.find()
     }
+    return post
 }
 ```
 
-### .env validation
+get.post.dto.ts
 ```
-npm i joi
+import { PaginationQueryDto } from "src/common/pagination/dtos/pagination-query.dto";
+
+export class GetPostDto extends PaginationQueryDto {}
 ```
-After install joi, create env.validation.ts file in global config folder
-```
-import Joi from 'joi';
-
-export default Joi.object({
-    NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
-    AUTH_KEY: Joi.string().required(),
-    DATABASE_PORT: Joi.number().port().default(5432),
-    DATABASE_USERNAME: Joi.string().required(),
-    DATABASE_PASSWORD: Joi.string().required(),
-    DATABASE_NAME: Joi.string().required(),
-    DATABASE_HOST: Joi.string().required(),
-
-    DATABASE_AUTOLOAD: Joi.boolean().optional(),
-    DATABASE_SYNC: Joi.boolean().optional(),
-
-    AUTH_FALLBACK: Joi.string().required(),
-})
-
-```
-
-And import in app.module.ts inside of config
-
-```
-ConfigModule.forRoot({
-    validationSchema: envValidation
-  })
-```
-
 
 

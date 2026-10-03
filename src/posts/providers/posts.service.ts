@@ -3,12 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Post } from '../post.entity';
 import { Repository } from 'typeorm';
 import { CreatePostDto } from '../dto/create.post.dto';
+import { GetPostDto } from '../dto/get.post.dto';
+import { PaginationProvider } from 'src/common/pagination/provider/pagination.provider';
 
 @Injectable()
 export class PostsService {
     constructor(
         @InjectRepository(Post)
-        private postRepository:Repository<Post>
+        private postRepository:Repository<Post>,
+
+        private readonly paginationProvider:PaginationProvider
     ){}
 
     getAllPostsById(userId:string) {
@@ -20,8 +24,14 @@ export class PostsService {
         ]
     }
 
-    findAllPost(){
-        return this.postRepository.find()
+    findAllPost(postQuery:GetPostDto){
+        let post
+        if(postQuery.limit || postQuery.page){
+            post = this.paginationProvider.paginateQuery(postQuery, this.postRepository)
+        }else{
+            post = this.postRepository.find()
+        }
+        return post
     }
 
     async addPost(createPostDto:CreatePostDto){
