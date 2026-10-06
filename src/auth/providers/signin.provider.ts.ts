@@ -5,6 +5,7 @@ import { HashingProvider } from './hashing.provider';
 import jwtConfig from '../config/jwt.config';
 import type { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { GenerateTokenProvider } from './generate-token.provider';
 
 @Injectable()
 export class SigninProviderTs {
@@ -14,10 +15,7 @@ export class SigninProviderTs {
 
         private readonly hashingProvider:HashingProvider,
 
-        @Inject(jwtConfig.KEY)
-        private readonly jwtConfiguration:ConfigType<typeof jwtConfig>,
-
-        private readonly jwtService:JwtService
+        private readonly generateTokenProvider:GenerateTokenProvider
     ){}
 
     async signIn(signInDto:SignInDto){
@@ -37,17 +35,7 @@ export class SigninProviderTs {
             })
         }
 
-        const accessToken = await this.jwtService.signAsync({
-            id:user.id,
-            email:user.email
-        },{
-            secret:this.jwtConfiguration.secret,
-            audience: this.jwtConfiguration.audience,
-            issuer: this.jwtConfiguration.issuer,
-            expiresIn: this.jwtConfiguration.accessTokenTtl
-        })
-        
-        return {accessToken}
+        return this.generateTokenProvider.generateTokens(user)
     }
 
 }
