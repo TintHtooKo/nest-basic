@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { CreatePostDto } from '../dto/create.post.dto';
 import { GetPostDto } from '../dto/get.post.dto';
 import { PaginationProvider } from 'src/common/pagination/provider/pagination.provider';
+import { CreatePostProvider } from './create-post.provider';
+import { UserData } from 'src/auth/interfaces/user-data.interface';
 
 @Injectable()
 export class PostsService {
@@ -12,7 +14,9 @@ export class PostsService {
         @InjectRepository(Post)
         private postRepository:Repository<Post>,
 
-        private readonly paginationProvider:PaginationProvider
+        private readonly paginationProvider:PaginationProvider,
+
+        private readonly createPostProvider:CreatePostProvider
     ){}
 
     getAllPostsById(userId:string) {
@@ -34,10 +38,8 @@ export class PostsService {
         return post
     }
 
-    async addPost(createPostDto:CreatePostDto){
-        let post = this.postRepository.create(createPostDto)
-        post = await this.postRepository.save(post)
-        return post
+    async addPost(createPostDto:CreatePostDto,user:UserData){
+        return await this.createPostProvider.createPost(createPostDto,user)
     }
 
     async deletePost(id:number){

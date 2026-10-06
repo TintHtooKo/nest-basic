@@ -8,6 +8,8 @@ import * as config from "@nestjs/config";
 import authConfig from "../config/auth.config";
 import { MultiUserCreateProvider } from "./multi-user-create.provider";
 import { CreateMultiUserDto } from "../dtos/multi-create-users.dto";
+import { CreateUserProvider } from "./create-user.provider";
+import { FindByEmailProviderTs } from "./find-by-email.provider.ts";
 
 /** This class service connect to users */
 @Injectable()
@@ -25,7 +27,11 @@ export class UserService{
         @Inject(authConfig.KEY)
         private readonly authConfiguration:config.ConfigType<typeof authConfig>,
 
-        private readonly multiUserCreateProvider:MultiUserCreateProvider
+        private readonly multiUserCreateProvider:MultiUserCreateProvider,
+
+        private readonly createUserProvider:CreateUserProvider,
+
+        private readonly findByEmailProvider:FindByEmailProviderTs
     ){}
 
     /** Get all users */
@@ -71,32 +77,14 @@ export class UserService{
     }
 
     async createUser(createUserDto:CreateUserDto){
-        let existUser
-        try {
-            existUser = await this.userRepository.findOne({
-                where:{email:createUserDto.email}
-            })
-        } catch (error) {
-            throw new RequestTimeoutException('Cannot process your request this time.',{
-                description:"Cannot connect to database"
-            })
-        }
-        if(existUser){
-            throw new BadRequestException("User already exist")
-        }
-        let newUser = this.userRepository.create(createUserDto)
-        newUser = await this.userRepository.save(newUser)
-        try {
-             newUser = await this.userRepository.save(newUser)
-        } catch (error) {
-            throw new RequestTimeoutException('Cannot process your request this time.',{
-                description:"Cannot connect to database"
-            })
-        }
-        return newUser
+        return this.createUserProvider.createUser(createUserDto)
     }
 
     async createMulti(createMultiUserDto:CreateMultiUserDto){
         return this.multiUserCreateProvider.createMulti(createMultiUserDto)
+    }
+
+    async findByEmail(email:string){
+        return await this.findByEmailProvider.findByEmail(email)
     }
 }

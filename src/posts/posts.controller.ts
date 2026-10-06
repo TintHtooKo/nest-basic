@@ -4,7 +4,9 @@ import { CreatePostDto } from './dto/create.post.dto';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PatchPostDto } from './dto/patch.post.dto';
 import { GetPostDto } from './dto/get.post.dto';
-
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { AuthType } from 'src/auth/enums/auth-type-enum';
+import { User } from 'src/auth/decorators/user.decorator';
 @Controller('posts')
 export class PostsController {
     constructor(private readonly postService:PostsService){}
@@ -14,6 +16,7 @@ export class PostsController {
     }
 
     @Get()
+    @Auth(AuthType.None)
     getAllPosts(@Query() postQuery:GetPostDto){
         console.log(postQuery)
         return this.postService.findAllPost(postQuery);
@@ -22,8 +25,8 @@ export class PostsController {
     @ApiOperation({summary:"For create post"})
     @ApiResponse({status:201,description:"Created"})
     @Post()
-    createPost(@Body() createPostDto:CreatePostDto){
-        return this.postService.addPost(createPostDto);
+    createPost(@Body() createPostDto:CreatePostDto,@User() user){
+        return this.postService.addPost(createPostDto,user)
     }
 
     @ApiOperation({summary:"For update post"})
