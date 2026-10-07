@@ -10,6 +10,9 @@ import { MultiUserCreateProvider } from "./multi-user-create.provider";
 import { CreateMultiUserDto } from "../dtos/multi-create-users.dto";
 import { CreateUserProvider } from "./create-user.provider";
 import { FindByEmailProviderTs } from "./find-by-email.provider.ts";
+import { FindByGoogleIdProvider } from "./find-by-google-id.provider";
+import { CreateGoogleUserProvider } from "./create-google-user.provider";
+import { GoogleUser } from "../interfaces/google-user.interface";
 
 /** This class service connect to users */
 @Injectable()
@@ -31,7 +34,11 @@ export class UserService{
 
         private readonly createUserProvider:CreateUserProvider,
 
-        private readonly findByEmailProvider:FindByEmailProviderTs
+        private readonly findByEmailProvider:FindByEmailProviderTs,
+
+        private readonly findByGoogleIdProvider:FindByGoogleIdProvider,
+
+        private readonly createGoogleUserProvider:CreateGoogleUserProvider
     ){}
 
     /** Get all users */
@@ -86,5 +93,13 @@ export class UserService{
 
     async findByEmail(email:string){
         return await this.findByEmailProvider.findByEmail(email)
+    }
+
+    async findByGoogleId(googleId:string){
+        return await this.findByGoogleIdProvider.findByGoogleId(googleId)
+    }
+
+    async createGoogleUser(googleUser:GoogleUser){
+        return await this.createGoogleUserProvider.createGoogleUser(googleUser)
     }
 }
