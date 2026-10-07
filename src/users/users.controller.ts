@@ -1,10 +1,12 @@
-import { Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, ClassSerializerInterceptor, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { CreateUserDto } from './dtos/create.user.dto';
 import { GetUserDto } from './dtos/get.user.dto';
 import { PatchUserDto } from './dtos/patch.user.dto';
 import { UserService } from './providers/user.service';
 import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { CreateMultiUserDto } from './dtos/multi-create-users.dto';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { AuthType } from 'src/auth/enums/auth-type-enum';
 
 @Controller('users')
 export class UsersController {
@@ -26,6 +28,7 @@ export class UsersController {
         description:"page",
         example:5
     })
+    @Auth(AuthType.None)
     getUsers(
         @Query('limit',new DefaultValuePipe(10),ParseIntPipe) limit:number,
         @Query('page',new DefaultValuePipe(5),ParseIntPipe) page:number
@@ -40,6 +43,8 @@ export class UsersController {
 
 
     @Post()
+    @UseInterceptors(ClassSerializerInterceptor)
+    @Auth(AuthType.None)
     createUser(@Body() createUserDto:CreateUserDto){ 
         return this.userService.createUser(createUserDto);
     }

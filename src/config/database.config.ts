@@ -8,4 +8,5 @@ export default registerAs('database',() => ({
     password: process.env.DATABASE_PASSWORD,
     host: process.env.DATABASE_HOST,
     name: process.env.DATABASE_NAME,
+    apiVersion: process.env.API_VERSION,
 }))
