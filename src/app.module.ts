@@ -21,6 +21,8 @@ import jwtConfig from './auth/config/jwt.config';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthenticationGuard } from './auth/guards/authentication/authentication.guard';
 import { DataResourceInterceptor } from './common/interceptors/data-resource/data-resource.interceptor';
+import { UploadsModule } from './uploads/uploads.module';
+import appConfig from './config/app.config';
 
 const ENV = process.env.NODE_ENV
 
@@ -45,12 +47,13 @@ const ENV = process.env.NODE_ENV
   ConfigModule.forRoot({
     isGlobal:true,
     envFilePath: ENV ? `.env.${ENV}` : '.env',
-    load: [databaseConfig],
+    load: [databaseConfig,appConfig],
     validationSchema: envValidation
   }),
   PaginationModule,
   ConfigModule.forFeature(jwtConfig),
-  JwtModule.registerAsync(jwtConfig.asProvider())
+  JwtModule.registerAsync(jwtConfig.asProvider()),
+  UploadsModule
 ],
   controllers: [AppController],
   providers: [

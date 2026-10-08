@@ -1,32 +1,12 @@
-### Interceptor
-NestJS မှာ Interceptor ဆိုတာ Controller ကနေ Request မจัดการမှီ (Request မရောက်ခင်) သို့မဟုတ် Response ပြန်မထွက်မီ (Response မရောက်ခင်) ကြားကနေ Request / Response တွေကို ကြားဖြတ်စစ်ဆေးခြင်း၊ ပြုပြင်ပြောင်းလဲခြင်း (Intercept & Transform) လုပ်ပေးတဲ့ Class တစ်ခုဖြစ်ပါတယ်။
-Eg. I want to show api version in every response.
-So i add API_VERSION in .env.development
-
-and then also setup in database.config.ts
-
-and then create interceptor
+### Upload file to aws
 ```
-nest g interceptor common/interceptors/data-resource --no-spec
+npm i @aws-sdk/client-s3
 ```
-
 ```
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { map, Observable, tap } from 'rxjs';
-
-@Injectable()
-export class DataResourceInterceptor implements NestInterceptor {
-  constructor(
-  private readonly configService:ConfigService  
-  ){}
-
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    return next.handle().pipe(map((data)=>({
-      apiVersion: this.configService.get("database.apiVersion"),
-      data
-    })));
-  }
-}
+npm i -D @types/multer
 ```
+And create S3 Bucket and AWS Cloudfront
+AWS CloudFront ဆိုတာ Amazon Web Services (AWS) က ပံ့ပိုးပေးထားတဲ့ Content Delivery Network (CDN) ဝန်ဆောင်မှုတစ်ခု ဖြစ်ပါတယ်။
+အလွယ်ဆုံး ပြောရရင် မိမိရဲ့ Website သို့မဟုတ် Application ထဲမှာပါတဲ့ ဖိုင်များ (ပုံများ၊ ဗီဒီယိုများ၊ CSS/JS ဖိုင်များ) ကို ကမ္ဘာတစ်ဝှမ်းမှာရှိတဲ့ User တွေဆီ အမြန်ဆုံးနဲ့ လုံခြုံစွာ ရောက်ရှိအောင် ပို့ဆောင်ပေးတဲ့ စနစ် ဖြစ်ပါတယ်။
 
+And create module, service, provider, app config(for upload) and controller
