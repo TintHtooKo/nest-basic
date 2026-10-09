@@ -1,12 +1,88 @@
-### Upload file to aws
+### Mail service
 ```
-npm i @aws-sdk/client-s3
+npm i @nestjs-modules/mailer
 ```
 ```
-npm i -D @types/multer
+npm i ejs
 ```
-And create S3 Bucket and AWS Cloudfront
-AWS CloudFront ဆိုတာ Amazon Web Services (AWS) က ပံ့ပိုးပေးထားတဲ့ Content Delivery Network (CDN) ဝန်ဆောင်မှုတစ်ခု ဖြစ်ပါတယ်။
-အလွယ်ဆုံး ပြောရရင် မိမိရဲ့ Website သို့မဟုတ် Application ထဲမှာပါတဲ့ ဖိုင်များ (ပုံများ၊ ဗီဒီယိုများ၊ CSS/JS ဖိုင်များ) ကို ကမ္ဘာတစ်ဝှမ်းမှာရှိတဲ့ User တွေဆီ အမြန်ဆုံးနဲ့ လုံခြုံစွာ ရောက်ရှိအောင် ပို့ဆောင်ပေးတဲ့ စနစ် ဖြစ်ပါတယ်။
+```
+npm i nodemailer
+```
+And then create module, template and service
+In mail.module.ts
+```
+import { Global, Module } from '@nestjs/common';
+import { MailService } from './providers/mail.service';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { ConfigService } from '@nestjs/config';
+import { join } from 'path';
+import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter.js';
 
-And create module, service, provider, app config(for upload) and controller
+@Global()
+@Module({
+  providers: [MailService],
+  exports: [MailService],
+  imports: [
+    MailerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: async(config: ConfigService)=>({
+        transport:{
+          host: config.get("appConfig.mailHost"),
+          secure: false,
+          port: 2525,
+          auth:{
+            user:config.get("appConfig.smtpUsername"),
+            pass:config.get("appConfig.smtpPassword")
+          }
+        },
+        defaults: {
+          from: 'no-reple'
+        },
+        template:{
+          dir: join(__dirname,'templates'),
+          adapter: new EjsAdapter({
+            inlineCssEnabled:true
+          })
+        }
+      })
+    })
+  ]
+})
+export class MailModule {}
+
+```
+@Global(): ဒီ Module ကို Global အဖြစ် သတ်မှတ်ပေးတာပါ။ ဒါကြောင့် တခြား Module တွေမှာ MailModule ကို ထပ်ခါထပ်ခါ imports လုပ်စရာမလိုဘဲ အီးမေးလ် Service ကို တိုက်ရိုက် ခေါ်သုံးလို့ရသွားပါလိမ့်မယ်။
+
+exports: [MailService]: တခြား Module တွေကပါ MailService ကို ယူသုံးနိုင်အောင် အပြင်သို့ ထုတ်ပေး (Export) လိုက်တာပါ။
+
+inject:[ConfigService]: အပလီကေးရှင်းရဲ့ Environment Variables (.env file) ထဲက Email Host, Username, Password စတာတွေကို ဘေးကင်းစွာ ဆွဲယူဖို့ သုံးထားတာဖြစ်ပါတယ်။
+
+In mail.service.ts
+```
+import { MailerService } from '@nestjs-modules/mailer';
+import { Injectable } from '@nestjs/common';
+import { User } from 'src/users/user.entity';
+
+@Injectable()
+export class MailService {
+    constructor(
+        private readonly mailerService:MailerService
+    ){}
+
+    async sendMail(user:User){
+        await this.mailerService.sendMail({
+            to:user.email,
+            from:"example@example.com",
+            subject:"This is testing mail service",
+            template:'./welcome',
+            context:{
+                name:user.firstName,
+                email:user.email
+            },
+        })
+    }
+}
+```
+private readonly mailerService:MailerService
+
+@nestjs-modules/mailer ထဲက MailerService ကို inject လုပ်
