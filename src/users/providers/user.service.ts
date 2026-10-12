@@ -1,5 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, RequestTimeoutException } from "@nestjs/common";
-import { AuthService } from "src/auth/providers/auth.service";
+import { BadRequestException, Inject, Injectable, RequestTimeoutException } from "@nestjs/common";
 import { Repository } from "typeorm";
 import { User } from "../user.entity";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -19,8 +18,6 @@ import { GoogleUser } from "../interfaces/google-user.interface";
 export class UserService{
     /** This is Constructor */
     constructor(
-        @Inject(forwardRef(() => AuthService))
-        private readonly authService:AuthService,
 
         @InjectRepository(User)
         private userRepository:Repository<User>,
@@ -43,8 +40,6 @@ export class UserService{
 
     /** Get all users */
     getAllUser(limit:number,page:number){
-        this.authService.isAuth()
-
         const env = this.configService.get("AUTH_KEY")
 
         console.log(env)

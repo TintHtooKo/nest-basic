@@ -1,88 +1,44 @@
-### Mail service
-```
-npm i @nestjs-modules/mailer
-```
-```
-npm i ejs
-```
-```
-npm i nodemailer
-```
-And then create module, template and service
-In mail.module.ts
-```
-import { Global, Module } from '@nestjs/common';
-import { MailService } from './providers/mail.service';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { ConfigService } from '@nestjs/config';
-import { join } from 'path';
-import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter.js';
+## Important Note when deploy on VPS
+Local project မှာဆိုရင် database က auto migrate ဖြစ်တယ်
+But vps မှာ deploy လုပ်မယ်ဆိုရင် migration ကို manually လုပ်ပေးဖို့လိုတယ်
 
-@Global()
-@Module({
-  providers: [MailService],
-  exports: [MailService],
-  imports: [
-    MailerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: async(config: ConfigService)=>({
-        transport:{
-          host: config.get("appConfig.mailHost"),
-          secure: false,
-          port: 2525,
-          auth:{
-            user:config.get("appConfig.smtpUsername"),
-            pass:config.get("appConfig.smtpPassword")
-          }
-        },
-        defaults: {
-          from: 'no-reple'
-        },
-        template:{
-          dir: join(__dirname,'templates'),
-          adapter: new EjsAdapter({
-            inlineCssEnabled:true
-          })
-        }
-      })
-    })
-  ]
+So let's create typeorm-cli.config.ts file
+```
+import { DataSource } from "typeorm";
+
+export default new DataSource({
+    type: "postgres",
+    host: "localhost",
+    port: 5432,
+    username: "postgres",
+    password: "your-database-password",
+    database: "your-database-name",
+    entities: ["**/*.entity.js"],
+    migrations: ["migrations/*.js"],
 })
-export class MailModule {}
-
 ```
-@Global(): ဒီ Module ကို Global အဖြစ် သတ်မှတ်ပေးတာပါ။ ဒါကြောင့် တခြား Module တွေမှာ MailModule ကို ထပ်ခါထပ်ခါ imports လုပ်စရာမလိုဘဲ အီးမေးလ် Service ကို တိုက်ရိုက် ခေါ်သုံးလို့ရသွားပါလိမ့်မယ်။
+What is this for?
+ဒီ typeorm-cli.config.ts file က NestJS project မှာ TypeORM CLI ကိုသုံးပြီး PostgreSQL database နဲ့ချိတ်ဆက်ဖို့၊ migration တွေကို run လုပ်ဖို့ သတ်မှတ်ထားတဲ့ configuration file ဖြစ်ပါတယ်။
+ဥပမာ migration:generate, migration:run, migration:revert စတဲ့ command တွေသုံးတဲ့အခါ TypeORM CLI က ဒီ configuration ကို ဖတ်ပြီး database ကို ဘယ်လိုချိတ်ဆက်ရမလဲဆိုတာ သိနိုင်ပါတယ်။
 
-exports: [MailService]: တခြား Module တွေကပါ MailService ကို ယူသုံးနိုင်အောင် အပြင်သို့ ထုတ်ပေး (Export) လိုက်တာပါ။
-
-inject:[ConfigService]: အပလီကေးရှင်းရဲ့ Environment Variables (.env file) ထဲက Email Host, Username, Password စတာတွေကို ဘေးကင်းစွာ ဆွဲယူဖို့ သုံးထားတာဖြစ်ပါတယ်။
-
-In mail.service.ts
+And then create migrations folder inside src.
+And then you can generate migrations with this command
 ```
-import { MailerService } from '@nestjs-modules/mailer';
-import { Injectable } from '@nestjs/common';
-import { User } from 'src/users/user.entity';
-
-@Injectable()
-export class MailService {
-    constructor(
-        private readonly mailerService:MailerService
-    ){}
-
-    async sendMail(user:User){
-        await this.mailerService.sendMail({
-            to:user.email,
-            from:"example@example.com",
-            subject:"This is testing mail service",
-            template:'./welcome',
-            context:{
-                name:user.firstName,
-                email:user.email
-            },
-        })
-    }
-}
+npx typeorm migration:generate src/migrations/NameWhatYouWant -d dist/typeorm-cli.config
 ```
-private readonly mailerService:MailerService
 
-@nestjs-modules/mailer ထဲက MailerService ကို inject လုပ်
+-d => datasource
+dist/typeorm-cli.config => DataSource configuration file ရှိတဲ့နေရာ
+
+typeorm-cli.config.ts file ဆောက်ပီး project ကို start ရင် dist folder auto generate ပီး အဲ့ထဲမှာ typeorm-cli.config file ရှိနေမယ်
+
+After generate, run 
+```
+npx typeorm migration:run -d dist/typeorm-cli.config
+```
+
+### Import Note for .env
+DATABASE_SYNC=false
+You have to change DATABASE_SYNC to false.
+
+And in production mode, before start, you have to npm run build first.
